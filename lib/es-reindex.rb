@@ -5,7 +5,7 @@ class ESReindex
 
   DEFAULT_URL = 'http://127.0.0.1:9200'
 
-  attr_accessor :src, :dst, :options, :start_time
+  attr_accessor :src, :dst, :options, :start_time, :done
 
   def initialize(src, dst, options = {})
     @src     = src || ''
@@ -15,6 +15,8 @@ class ESReindex
       update: false, # update existing documents (default: only create non-existing)
       frame:  1000   # specify frame size to be obtained with one fetch during scrolling
     }.merge! options
+
+    @done = 0
   end
 
   def go!
@@ -79,7 +81,7 @@ class ESReindex
     end
 
     printf "Copying '%s/%s' to '%s/%s'... \n", surl, sidx, durl, didx
-    @start_time, done = Time.now, 0
+    @start_time = Time.now
     shards = retried_request :get, "#{surl}/#{sidx}/_count?q=*"
     shards = MultiJson.load(shards)['_shards']['total'].to_i
     scan = retried_request :get, "#{surl}/#{sidx}/_search?search_type=scan&scroll=10m&size=#{frame / shards}"
@@ -105,7 +107,7 @@ class ESReindex
         }
         bulk << MultiJson.dump(bulk_op => base) + "\n"
         bulk << MultiJson.dump(doc['_source'])  + "\n"
-        done += 1
+        @done = done + 1
       end
       unless bulk.empty?
         bulk << "\n" # empty line in the end required
