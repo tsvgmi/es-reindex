@@ -64,16 +64,17 @@ class ESReindex
         exit 1
       end
       mappings = Oj.load mappings
-      mappings[sidx].each_pair{|type, mapping|
+      mappings = mappings[sidx]
+      mappings = mappings['mappings'] if mappings.is_a?(Hash) && mappings.has_key?('mappings')
+      mappings.each_pair do |type, mapping|
         printf 'Copying mapping \'%s/%s/%s\'... ', durl, didx, type
-        unless retried_request(:put, "#{durl}/#{didx}/#{type}/_mapping",
-            Oj.dump({type => mapping}))
+        unless retried_request(:put, "#{durl}/#{didx}/#{type}/_mapping", Oj.dump(type => mapping))
           puts 'FAILED!'
           exit 1
         else
           puts 'OK.'
         end
-      }
+      end
     end
 
     printf "Copying '%s/%s' to '%s/%s'... \n", surl, sidx, durl, didx
