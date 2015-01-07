@@ -3,6 +3,8 @@ require 'oj'
 
 class ESReindex
 
+  DEFAULT_URL = 'http://127.0.0.1:9200'
+
   attr_accessor :src, :dst, :options
 
   def initialize(src, dst, options = {})
@@ -24,7 +26,7 @@ class ESReindex
         url.replace $1
         idx.replace $2
       else
-        url.replace 'http://127.0.0.1:9200'
+        url.replace DEFAULT_URL
         idx.replace param
       end
     end
