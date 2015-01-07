@@ -1,6 +1,6 @@
-# es-reindex - simple ruby script for copying ElasticSearch index
+# es-reindex - simple ruby gem for copying ElasticSearch index
 
-Simple ruby script to copy and reindex ElasticSearch index,
+Simple ruby gem to copy and reindex ElasticSearch index,
 copying index settings and mapping(s).
 
 Progress and time estimation is displayed during the scrolling process.
@@ -14,27 +14,47 @@ Following gems are required:
 + [rest-client](https://github.com/archiloque/rest-client)
 + [multi_json](https://github.com/intridea/multi_json)
 
-## Usage
+## Usage (command line)
 
 Refer to script's help:
 
-    $ ./es-reindex.rb -h
+```bash
+$ ./es-reindex.rb -h
 
-    Script to copy particular ES index including its (re)creation w/options set
-    and mapping copied.
+Script to copy particular ES index including its (re)creation w/options set
+and mapping copied.
 
-    Usage:
+Usage:
 
-      ./es-reindex.rb [-r] [-f <frame>] [source_url/]<index> [destination_url/]<index>
+  ./es-reindex.rb [-r] [-f <frame>] [source_url/]<index> [destination_url/]<index>
 
-        - -r - remove the index in the new location first
-        - -f - specify frame size to be obtained with one fetch during scrolling
-        - -u - update existing documents (default: only create non-existing)
-        - optional source/destination urls default to http://127.0.0.1:9200
+    - -r - remove the index in the new location first
+    - -f - specify frame size to be obtained with one fetch during scrolling
+    - -u - update existing documents (default: only create non-existing)
+    - optional source/destination urls default to http://127.0.0.1:9200
+```
 
+## Usage (in project)
+
+You can also use it as a PORO:
+
+```ruby
+# Options:
+# remove: same as -r
+# frame: same as -f
+# update: same as -u cli option
+
+options = {
+  remove: true,
+  update: true
+}
+
+ESReindex.new('http://my_server/index', 'http://my_server/index_copy', options).go!
+```
 
 ## Changelog
 
++ __0.0.9__: Gemification, Oj -> MultiJSON
 + __0.0.8__: Optimization in string concat (@nara)
 + __0.0.7__: Document header arguments `_timestamp` and `_ttl` are copied as well
 + __0.0.6__: Document headers in bulks are now assembled and properly JSON dumped
@@ -45,7 +65,8 @@ Refer to script's help:
 + __0.0.1__: first revision
 
 ## License
+es-reindex the gem is copyright (c)2014 Mojo Lingo, and released under the terms
+of the MIT license. See the LICENSE file for the gory details.
 
 es-reindex is copyright (c)2012 Jiri Nemecek, and released under the terms
 of the MIT license. See the LICENSE file for the gory details.
-
