@@ -27,7 +27,7 @@ Gem::Specification.new do |s|
 
   s.add_development_dependency %q<coveralls>, ['>= 0']
   s.add_development_dependency %q<bundler>, ["~> 1.0"]
-  s.add_development_dependency %q<rspec>, ["~> 2.5"]
+  s.add_development_dependency %q<rspec>, ["~> 2.99"]
   s.add_development_dependency %q<rake>, [">= 0"]
-  s.add_development_dependency %q<guard-rspec>
+  s.add_development_dependency %q<guard-rspec>, ['~> 4.5']
  end
