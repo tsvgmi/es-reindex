@@ -5,7 +5,7 @@ class ESReindex
 
   DEFAULT_URL = 'http://127.0.0.1:9200'
 
-  attr_accessor :src, :dst, :options
+  attr_accessor :src, :dst, :options, :start_time
 
   def initialize(src, dst, options = {})
     @src     = src || ''
@@ -77,7 +77,7 @@ class ESReindex
     end
 
     printf "Copying '%s/%s' to '%s/%s'... \n", surl, sidx, durl, didx
-    t, done = Time.now, 0
+    @start_time, done = Time.now, 0
     shards = retried_request :get, "#{surl}/#{sidx}/_count?q=*"
     shards = Oj.load(shards)['_shards']['total'].to_i
     scan = retried_request :get, "#{surl}/#{sidx}/_search?search_type=scan&scroll=10m&size=#{frame / shards}"
@@ -110,13 +110,12 @@ class ESReindex
         retried_request :post, "#{durl}/_bulk", bulk
       end
 
-      eta = total * (Time.now - t) / done
+      eta = total * (Time.now - start_time) / done
       printf "    %u/%u (%.1f%%) done in %s, E.T.A.: %s.\r",
-        done, total, 100.0 * done / total, tm_len(Time.now - t), t + eta
+        done, total, 100.0 * done / total, tm_len, start_time + eta
     end
 
-    printf "#{' ' * 80}\r    %u/%u done in %s.\n",
-      done, total, tm_len(Time.now - t)
+    printf "#{' ' * 80}\r    %u/%u done in %s.\n", done, total, tm_len
 
     # no point for large reindexation with data still being stored in index
     printf 'Checking document count... '
@@ -153,7 +152,8 @@ private
     @options[:frame]
   end
 
-  def tm_len l
+  def tm_len
+    l = Time.now - @start_time
     t = []
     t.push l/86400; l %= 86400
     t.push l/3600;  l %= 3600
