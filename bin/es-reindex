@@ -1,0 +1,25 @@
+#!/usr/bin/env ruby
+
+require 'es-reindex'
+
+STDOUT.sync = true
+
+if ARGV.size == 0 or ARGV[0] =~ /^-(?:h|-?help)$/
+  puts "
+  Script to copy particular ES index including its (re)creation w/options set
+  and mapping copied.
+
+  Usage:
+
+    #{__FILE__} [-r] [-f <frame>] [source_url/]<index> [destination_url/]<index>
+
+      - -r - remove the index in the new location first
+      - -f - specify frame size to be obtained with one fetch during scrolling
+      - -u - update existing documents (default: only create non-existing)
+      - optional source/destination urls default to http://127.0.0.1:9200
+  \n"
+
+  exit 1
+end
+
+EsReindex.go ARGS
