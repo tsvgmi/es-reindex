@@ -23,7 +23,7 @@ Gem::Specification.new do |s|
   s.require_paths = ["lib"]
 
   s.add_runtime_dependency 'rest-client', '~> 1.6.0'
-  s.add_runtime_dependency 'oj', '~> 2.0.0'
+  s.add_runtime_dependency 'multi_json'
 
   s.add_development_dependency %q<coveralls>, ['>= 0']
   s.add_development_dependency %q<bundler>, ["~> 1.0"]

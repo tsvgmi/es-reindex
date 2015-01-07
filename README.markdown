@@ -7,30 +7,26 @@ Progress and time estimation is displayed during the scrolling process.
 
 ## Requirements
 
-Ruby 1.8.6 or newer is required, use [rvm](https://rvm.io/) for convenience.
+Ruby 1.9.3 or newer is required, use [rvm](https://rvm.io/) for convenience.
 
-Following gems are required via `Gemfile`:
+Following gems are required:
 
-+ [rest-client] (https://github.com/archiloque/rest-client)
-+ [oj] (https://github.com/ohler55/oj)
-
-You can install the requirements locally via `bundler`:
-
-    $ bundle install --path=.bundle
++ [rest-client](https://github.com/archiloque/rest-client)
++ [multi_json](https://github.com/intridea/multi_json)
 
 ## Usage
 
 Refer to script's help:
 
     $ ./es-reindex.rb -h
-    
+
     Script to copy particular ES index including its (re)creation w/options set
     and mapping copied.
-    
+
     Usage:
-    
+
       ./es-reindex.rb [-r] [-f <frame>] [source_url/]<index> [destination_url/]<index>
-    
+
         - -r - remove the index in the new location first
         - -f - specify frame size to be obtained with one fetch during scrolling
         - -u - update existing documents (default: only create non-existing)

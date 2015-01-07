@@ -1,5 +1,5 @@
 require 'rest-client'
-require 'oj'
+require 'multi_json'
 
 class ESReindex
 
@@ -18,7 +18,8 @@ class ESReindex
   end
 
   def go!
-    Oj.default_options = {mode: :compat}
+    MultiJson.load_options = {mode: :compat}
+    MultiJson.dump_options = {mode: :compat}
 
     surl, durl, sidx, didx = '', '', '', ''
     [[src, surl, sidx], [dst, durl, didx]].each do |param, url, idx|
@@ -49,11 +50,11 @@ class ESReindex
         warn "Failed to obtain original index '#{surl}/#{sidx}' settings!"
         exit 1
       end
-      settings = Oj.load settings
+      settings = MultiJson.load settings
       sidx = settings.keys[0]
       settings[sidx].delete 'index.version.created'
       printf 'Creating \'%s/%s\' index with settings from \'%s/%s\'... ', durl, didx, surl, sidx
-      unless retried_request :post, "#{durl}/#{didx}", Oj.dump(settings[sidx])
+      unless retried_request :post, "#{durl}/#{didx}", MultiJson.dump(settings[sidx])
         puts 'FAILED!'
         exit 1
       else
@@ -63,12 +64,12 @@ class ESReindex
         warn "Failed to obtain original index '#{surl}/#{sidx}' mappings!"
         exit 1
       end
-      mappings = Oj.load mappings
+      mappings = MultiJson.load mappings
       mappings = mappings[sidx]
       mappings = mappings['mappings'] if mappings.is_a?(Hash) && mappings.has_key?('mappings')
       mappings.each_pair do |type, mapping|
         printf 'Copying mapping \'%s/%s/%s\'... ', durl, didx, type
-        unless retried_request(:put, "#{durl}/#{didx}/#{type}/_mapping", Oj.dump(type => mapping))
+        unless retried_request(:put, "#{durl}/#{didx}/#{type}/_mapping", MultiJson.dump(type => mapping))
           puts 'FAILED!'
           exit 1
         else
@@ -80,9 +81,9 @@ class ESReindex
     printf "Copying '%s/%s' to '%s/%s'... \n", surl, sidx, durl, didx
     @start_time, done = Time.now, 0
     shards = retried_request :get, "#{surl}/#{sidx}/_count?q=*"
-    shards = Oj.load(shards)['_shards']['total'].to_i
+    shards = MultiJson.load(shards)['_shards']['total'].to_i
     scan = retried_request :get, "#{surl}/#{sidx}/_search?search_type=scan&scroll=10m&size=#{frame / shards}"
-    scan = Oj.load scan
+    scan = MultiJson.load scan
     scroll_id = scan['_scroll_id']
     total = scan['hits']['total']
     printf "    %u/%u (%.1f%%) done.\r", done, total, 0
@@ -91,7 +92,7 @@ class ESReindex
 
     while true do
       data = retried_request :get, "#{surl}/_search/scroll?scroll=10m&scroll_id=#{scroll_id}"
-      data = Oj.load data
+      data = MultiJson.load data
       break if data['hits']['hits'].empty?
       scroll_id = data['_scroll_id']
       bulk = ''
@@ -102,8 +103,8 @@ class ESReindex
         ['_timestamp', '_ttl'].each{|doc_arg|
           base[doc_arg] = doc[doc_arg] if doc.key? doc_arg
         }
-        bulk << Oj.dump(bulk_op => base) + "\n"
-        bulk << Oj.dump(doc['_source'])  + "\n"
+        bulk << MultiJson.dump(bulk_op => base) + "\n"
+        bulk << MultiJson.dump(doc['_source'])  + "\n"
         done += 1
       end
       unless bulk.empty?
@@ -126,8 +127,8 @@ class ESReindex
         while true
           scount = retried_request :get, "#{surl}/#{sidx}/_count?q=*"
           dcount = retried_request :get, "#{durl}/#{didx}/_count?q=*"
-          scount = Oj.load(scount)['count'].to_i
-          dcount = Oj.load(dcount)['count'].to_i
+          scount = MultiJson.load(scount)['count'].to_i
+          dcount = MultiJson.load(dcount)['count'].to_i
           break if scount == dcount
           sleep 1
         end
