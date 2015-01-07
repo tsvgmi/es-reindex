@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'es-reindex'
+require 'es-reindex/args_parser'
 
 STDOUT.sync = true
 
@@ -22,4 +23,5 @@ if ARGV.size == 0 or ARGV[0] =~ /^-(?:h|-?help)$/
   exit 1
 end
 
-EsReindex.go ARGS
+src, dst, options = ESReindex::ArgsParser.parse(ARGV)
+ESReindex.new(src, dst, options).go!

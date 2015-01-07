@@ -3,22 +3,20 @@ require 'oj'
 
 class ESReindex
 
-  def go(args)
+  attr_accessor :src, :dst, :options
+
+  def initialize(src, dst, options = {})
+    @src     = src || ''
+    @dst     = dst || ''
+    @options = {
+      remove: false, # remove the index in the new location first
+      update: false, # update existing documents (default: only create non-existing)
+      frame:  1000   # specify frame size to be obtained with one fetch during scrolling
+    }.merge! options
+  end
+
+  def go!
     Oj.default_options = {:mode => :compat}
-
-    remove, update, frame, src, dst = false, false, 1000, nil, nil
-
-    while args[0]
-      case arg = args.shift
-      when '-r' then remove = true
-      when '-f' then frame = args.shift.to_i
-      when '-u' then update = true
-      else
-        u = arg.chomp '/'
-        !src ? (src = u) : !dst ? (dst = u) :
-          raise("Unexpected parameter '#{arg}'. Use '-h' for help.")
-      end
-    end
 
     surl, durl, sidx, didx = '', '', '', ''
     [[src, surl, sidx], [dst, durl, didx]].each do |param, url, idx|
@@ -30,17 +28,18 @@ class ESReindex
         idx.replace param
       end
     end
+
     printf "Copying '%s/%s' to '%s/%s'%s\n  Confirm or hit Ctrl-c to abort...\n",
       surl, sidx, durl, didx,
-      remove ?
+      remove? ?
         ' with rewriting destination mapping!' :
-        update ? ' with updating existing documents!' : '.'
+        update? ? ' with updating existing documents!' : '.'
 
     $stdin.readline
 
     # remove old index in case of remove=true
     retried_request(:delete, "#{durl}/#{didx}") \
-      if remove && retried_request(:get, "#{durl}/#{didx}/_status")
+      if remove? && retried_request(:get, "#{durl}/#{didx}/_status")
 
     # (re)create destination index
     unless retried_request(:get, "#{durl}/#{didx}/_status")
@@ -88,7 +87,7 @@ class ESReindex
     total = scan['hits']['total']
     printf "    %u/%u (%.1f%%) done.\r", done, total, 0
 
-    bulk_op = update ? 'index' : 'create'
+    bulk_op = update? ? 'index' : 'create'
 
     while true do
       data = retried_request(:get,
@@ -141,6 +140,20 @@ class ESReindex
       scount, dcount, scount == dcount ? 'equals).' : 'NOT EQUAL)!'
 
     exit 0
+  end
+
+private
+
+  def remove?
+    @options[:remove]
+  end
+
+  def update?
+    @options[:update]
+  end
+
+  def frame
+    @options[:frame]
   end
 
   def tm_len l
