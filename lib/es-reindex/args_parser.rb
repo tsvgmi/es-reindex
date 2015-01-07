@@ -7,7 +7,7 @@ class ESReindex
       while args[0]
         case arg = args.shift
         when '-r' then remove = true
-        when '-f' then frame = args.shift.to_i
+        when '-f' then frame  = args.shift.to_i
         when '-u' then update = true
         else
           u = arg.chomp '/'

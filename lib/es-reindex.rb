@@ -18,7 +18,7 @@ class ESReindex
   end
 
   def go!
-    Oj.default_options = {:mode => :compat}
+    Oj.default_options = {mode: :compat}
 
     surl, durl, sidx, didx = '', '', '', ''
     [[src, surl, sidx], [dst, durl, didx]].each do |param, url, idx|
@@ -40,11 +40,10 @@ class ESReindex
     $stdin.readline
 
     # remove old index in case of remove=true
-    retried_request(:delete, "#{durl}/#{didx}") \
-      if remove? && retried_request(:get, "#{durl}/#{didx}/_status")
+    retried_request(:delete, "#{durl}/#{didx}") if remove? && retried_request(:get, "#{durl}/#{didx}/_status")
 
     # (re)create destination index
-    unless retried_request(:get, "#{durl}/#{didx}/_status")
+    unless retried_request :get, "#{durl}/#{didx}/_status"
       # obtain the original index settings first
       unless settings = retried_request(:get, "#{surl}/#{sidx}/_settings")
         warn "Failed to obtain original index '#{surl}/#{sidx}' settings!"
@@ -53,9 +52,8 @@ class ESReindex
       settings = Oj.load settings
       sidx = settings.keys[0]
       settings[sidx].delete 'index.version.created'
-      printf 'Creating \'%s/%s\' index with settings from \'%s/%s\'... ',
-          durl, didx, surl, sidx
-      unless retried_request(:post, "#{durl}/#{didx}", Oj.dump(settings[sidx]))
+      printf 'Creating \'%s/%s\' index with settings from \'%s/%s\'... ', durl, didx, surl, sidx
+      unless retried_request :post, "#{durl}/#{didx}", Oj.dump(settings[sidx])
         puts 'FAILED!'
         exit 1
       else
@@ -82,8 +80,7 @@ class ESReindex
     t, done = Time.now, 0
     shards = retried_request :get, "#{surl}/#{sidx}/_count?q=*"
     shards = Oj.load(shards)['_shards']['total'].to_i
-    scan = retried_request(:get, "#{surl}/#{sidx}/_search" +
-        "?search_type=scan&scroll=10m&size=#{frame / shards}")
+    scan = retried_request :get, "#{surl}/#{sidx}/_search?search_type=scan&scroll=10m&size=#{frame / shards}"
     scan = Oj.load scan
     scroll_id = scan['_scroll_id']
     total = scan['hits']['total']
@@ -92,8 +89,7 @@ class ESReindex
     bulk_op = update? ? 'index' : 'create'
 
     while true do
-      data = retried_request(:get,
-          "#{surl}/_search/scroll?scroll=10m&scroll_id=#{scroll_id}")
+      data = retried_request :get, "#{surl}/_search/scroll?scroll=10m&scroll_id=#{scroll_id}"
       data = Oj.load data
       break if data['hits']['hits'].empty?
       scroll_id = data['_scroll_id']
@@ -105,8 +101,8 @@ class ESReindex
         ['_timestamp', '_ttl'].each{|doc_arg|
           base[doc_arg] = doc[doc_arg] if doc.key? doc_arg
         }
-        bulk << Oj.dump({bulk_op => base}) + "\n"
-        bulk << Oj.dump(doc['_source']) + "\n"
+        bulk << Oj.dump(bulk_op => base) + "\n"
+        bulk << Oj.dump(doc['_source'])  + "\n"
         done += 1
       end
       unless bulk.empty?
@@ -138,8 +134,7 @@ class ESReindex
       end
     rescue Timeout::Error
     end
-    printf "%u == %u (%s\n",
-      scount, dcount, scount == dcount ? 'equals).' : 'NOT EQUAL)!'
+    printf "%u == %u (%s\n", scount, dcount, scount == dcount ? 'equals).' : 'NOT EQUAL)!'
 
     exit 0
   end
@@ -185,4 +180,3 @@ private
     end
   end
 end
-
