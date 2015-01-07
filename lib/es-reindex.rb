@@ -167,13 +167,17 @@ private
     out
   end
 
-  def retried_request method, url, data=nil
+  def retried_request(method, url, data=nil)
     while true
       begin
         return data ?
           RestClient.send(method, url, data) :
           RestClient.send(method, url)
       rescue RestClient::ResourceNotFound # no point to retry
+        return nil
+      rescue RestClient::BadRequest => e # Something's wrong!
+        warn "\n#{method.to_s.upcase} #{url} :-> ERROR: #{e.class} - #{e.message}"
+        warn e.response
         return nil
       rescue => e
         warn "\nRetrying #{method.to_s.upcase} ERROR: #{e.class} - #{e.message}"
