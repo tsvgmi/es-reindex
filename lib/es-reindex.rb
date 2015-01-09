@@ -37,7 +37,7 @@ class ESReindex
   end
 
   def go!
-    ESReindex.logger.info "Copying '#{surl}/#{sidx}' to '#{durl}/#{didx}'#{remove? ? ' with rewriting destination mapping!' : update? ? ' with updating existing documents!' : '.'}"
+    log "Copying '#{surl}/#{sidx}' to '#{durl}/#{didx}'#{remove? ? ' with rewriting destination mapping!' : update? ? ' with updating existing documents!' : '.'}"
     confirm if from_cli?
 
     setup_json_options
@@ -63,21 +63,21 @@ class ESReindex
     unless retried_request :get, "#{durl}/#{didx}/_status"
       # obtain the original index settings first
       unless settings = retried_request(:get, "#{surl}/#{sidx}/_settings")
-        ESReindex.logger.info "Failed to obtain original index '#{surl}/#{sidx}' settings!"
+        log "Failed to obtain original index '#{surl}/#{sidx}' settings!"
         return false
       end
       settings = MultiJson.load settings
       sidx = settings.keys[0]
       settings[sidx].delete 'index.version.created'
-      ESReindex.logger.info "Creating '#{durl}/#{didx}' index with settings from '%#{surl}/%#{sidx}'..."
+      log "Creating '#{durl}/#{didx}' index with settings from '%#{surl}/%#{sidx}'..."
       unless retried_request :post, "#{durl}/#{didx}", MultiJson.dump(settings[sidx])
-        ESReindex.logger.error "Creating index #{durl}/#{didx} failed!"
+        log "Creating index #{durl}/#{didx} failed!", :error
         return false
       else
         puts 'OK.'
       end
       unless mappings = retried_request(:get, "#{surl}/#{sidx}/_mapping")
-        ESReindex.logger.error "Failed to obtain original index '#{surl}/#{sidx}' mappings!"
+        log "Failed to obtain original index '#{surl}/#{sidx}' mappings!", :error
         return false
       end
       mappings = MultiJson.load mappings
@@ -98,7 +98,7 @@ class ESReindex
   end
 
   def copy_docs
-    ESReindex.logger.info "Copying '#{surl}/#{sidx}' to '#{durl}/#{didx}'..."
+    log "Copying '#{surl}/#{sidx}' to '#{durl}/#{didx}'..."
     @start_time = Time.now
     shards = retried_request :get, "#{surl}/#{sidx}/_count?q=*"
     shards = MultiJson.load(shards)['_shards']['total'].to_i
@@ -106,7 +106,7 @@ class ESReindex
     scan = MultiJson.load scan
     scroll_id = scan['_scroll_id']
     total = scan['hits']['total']
-    ESReindex.logger.info "Copy progress: %u/%u (%.1f%%) done.\r" % [done, total, 0]
+    log "Copy progress: %u/%u (%.1f%%) done.\r" % [done, total, 0]
 
     bulk_op = update? ? 'index' : 'create'
 
@@ -133,14 +133,14 @@ class ESReindex
       end
 
       eta = total * (Time.now - start_time) / done
-      ESReindex.logger.info "Copy progress: %u/%u (%.1f%%) done in %s, E.T.A. : %s.\r" % 
+      ESReindex.logger.info "Copy progress: %u/%u (%.1f%%) done in %s, E.T.A. : %s.\r" %
                   [done, total, 100.0 * done / total, tm_len, start_time + eta]
     end
 
-    ESReindex.logger.info "Copy progress: %u/%u done in %s.\n" % [done, total, tm_len]
+    log "Copy progress: %u/%u done in %s.\n" % [done, total, tm_len]
 
     # no point for large reindexation with data still being stored in index
-    ESReindex.logger.info 'Checking document count... '
+    log 'Checking document count... '
     scount, dcount = 1, 0
     begin
       Timeout::timeout(60) do
@@ -155,7 +155,7 @@ class ESReindex
       end
     rescue Timeout::Error
     end
-    ESReindex.logger.info "Document count: #{scount} == #{dcount} (#{scount == dcount ? 'equal' : 'NOT EQUAL'})"
+    log "Document count: #{scount} == #{dcount} (#{scount == dcount ? 'equal' : 'NOT EQUAL'})"
 
     true
   end
@@ -165,6 +165,10 @@ class ESReindex
   end
 
 private
+
+  def log(msg, level = :info)
+    ESReindex.logger.send level, msg
+  end
 
   def setup_json_options
     if MultiJson.respond_to? :load_options=
@@ -213,12 +217,12 @@ private
       rescue RestClient::ResourceNotFound # no point to retry
         return nil
       rescue RestClient::BadRequest => e # Something's wrong!
-        warn "\n#{method.to_s.upcase} #{url} :-> ERROR: #{e.class} - #{e.message}"
-        warn e.response
+        log "\n#{method.to_s.upcase} #{url} :-> ERROR: #{e.class} - #{e.message}", :warn
+        log e.response, :warn
         return nil
       rescue => e
-        warn "\nRetrying #{method.to_s.upcase} ERROR: #{e.class} - #{e.message}"
-        warn e.response
+        log "\nRetrying #{method.to_s.upcase} ERROR: #{e.class} - #{e.message}", :warn
+        log e.response, :warn
       end
     end
   end
