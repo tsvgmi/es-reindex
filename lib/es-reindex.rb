@@ -96,11 +96,14 @@ class ESReindex
         @settings = options[:settings].call
         create_msg = ""
       end
+
+      options[:before_create].call if options[:before_create].present?
+
       log "Creating '#{durl}/#{didx}' index#{create_msg}..."
-
       dclient.indices.create index: didx, body: { settings: settings, mappings: mappings }
+      log "Succesfully created '#{durl}/#{didx}''#{create_msg}."
 
-      log "Succesfully created '#{durl}/#{didx}'' with settings & mappings from '#{surl}/#{sidx}'"
+      options[:after_create].call if options[:after_create].present?
     end
 
     true
@@ -138,11 +141,13 @@ class ESReindex
     while scroll = sclient.scroll(scroll_id: scroll['_scroll_id'], scroll: '10m') and not scroll['hits']['hits'].empty? do
       bulk = []
       scroll['hits']['hits'].each do |doc|
+        options[:before_each].call doc if options[:before_each].present?
         ### === implement possible modifications to the document
         ### === end modifications to the document
         base = {'_index' => didx, '_id' => doc['_id'], '_type' => doc['_type'], data: doc['_source']}
         bulk << {action => base}
         @done = done + 1
+        options[:after_each].call doc if options[:after_each].present?
       end
       unless bulk.empty?
         dclient.bulk body: bulk
@@ -153,6 +158,8 @@ class ESReindex
     end
 
     log "Copy progress: %u/%u done in %s.\n" % [done, total, tm_len]
+
+    options[:after_copy].call if options[:after_copy].present?
 
     true
   end
