@@ -18,13 +18,15 @@ describe ESReindex do
   describe "#copy!" do
     after { reindexer.copy! }
 
-    context "when run as a PORO" do
+    before do
+      %i{
+        confirm clear_destination create_destination copy_docs check_docs
+      }.each { |meth| reindexer.stub(meth).and_return true }
+    end
 
+    context "when run as a PORO" do
       it "doesn't use #exit" do
-        reindexer.stub :clear_destination
-        reindexer.stub :create_destination
-        reindexer.stub :copy_docs
-        reindexer.stub :check_docs
+        expect(reindexer).to receive(:clear_destination).and_return false
         expect(reindexer).not_to receive :exit
       end
     end
@@ -33,19 +35,11 @@ describe ESReindex do
       let(:options) { {from_cli: true} }
 
       it "exits 1 on failure" do
-        reindexer.stub :confirm
-
         expect(reindexer).to receive(:clear_destination).and_return false
         expect(reindexer).to receive(:exit).with 1
       end
 
       it "exits 0 on success" do
-        reindexer.stub :confirm
-
-        expect(reindexer).to receive(:clear_destination).and_return true
-        expect(reindexer).to receive(:create_destination).and_return true
-        expect(reindexer).to receive(:copy_docs).and_return true
-        expect(reindexer).to receive(:check_docs).and_return true
         expect(reindexer).to receive(:exit).with 0
       end
     end
