@@ -1,6 +1,8 @@
 require 'elasticsearch/persistence/model'
 
-def test_klass(index_name: 'some_name')
+def test_klass(options)
+  index_name = options[:index_name]
+
   Class.new do
     def self.name; 'TestKlass'; end
 
