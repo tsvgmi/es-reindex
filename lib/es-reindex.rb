@@ -7,7 +7,7 @@ class ESReindex
 
   DEFAULT_URL = 'http://127.0.0.1:9200'
 
-  attr_accessor :src, :dst, :options, :surl, :durl, :sidx, :didx, :sclient, :dclient, :start_time, :done
+  attr_accessor :src, :dst, :options, :surl, :durl, :sidx, :didx, :sclient, :dclient, :start_time, :done, :settings, :mappings
 
   def self.copy!(src, dst, options = {})
     self.new(src, dst, options).tap do |reindexer|
@@ -25,7 +25,8 @@ class ESReindex
       from_cli: false, # Coming from CLI?
       remove: false, # remove the index in the new location first
       update: false, # update existing documents (default: only create non-existing)
-      frame:  1000   # specify frame size to be obtained with one fetch during scrolling
+      frame:  1000,  # specify frame size to be obtained with one fetch during scrolling
+      copy_mappings: true # Copy old mappings/settings
     }.merge! options
 
     @done = 0
@@ -51,7 +52,13 @@ class ESReindex
     log "Copying '#{surl}/#{sidx}' to '#{durl}/#{didx}'#{remove? ? ' with rewriting destination mapping!' : update? ? ' with updating existing documents!' : '.'}"
     confirm if from_cli?
 
-    success = copy_mappings && copy_docs && check_docs
+    success = (
+      clear_destination  &&
+      create_destination &&
+      copy_docs          &&
+      check_docs
+    )
+
     if from_cli?
       exit (success ? 0 : 1)
     else
@@ -64,37 +71,56 @@ class ESReindex
     $stdin.readline
   end
 
-  def copy_mappings
-    # remove old index in case of remove=true
+  def clear_destination
     dclient.indices.delete(index: didx) if remove? && dclient.indices.exists(index: didx)
+    true
+  rescue => e
+    false
+  end
 
-    # (re)create destination index
+  def create_destination
     unless dclient.indices.exists index: didx
-      # obtain the original index settings first
-      unless settings = sclient.indices.get_settings(index: sidx)
-        log "Failed to obtain original index '#{surl}/#{sidx}' settings!"
-        return false
+      if copy_mappings?
+        return false unless get_settings
+        return false unless get_mappings
+        create_msg = " with settings & mappings from '#{surl}/#{sidx}'"
+      else
+        create_msg = ""
       end
-      settings = settings[sidx]["settings"]
-      settings["index"]["version"].delete "created"
 
-      unless mappings = sclient.indices.get_mapping(index: sidx)
-        log "Failed to obtain original index '#{surl}/#{sidx}' mappings!", :error
-        return false
+      log "Creating '#{durl}/#{didx}' index#{create_msg}..."
+
+      if copy_mappings?
+        dclient.indices.create index: didx, body: {
+          settings: settings,
+          mappings: mappings
+        }
+      else
+        dclient.indices.create index: didx
       end
-      mappings = mappings[sidx]["mappings"]
-
-      log "Creating '#{durl}/#{didx}' index with settings & mappings from '#{surl}/#{sidx}'..."
-
-      dclient.indices.create index: didx, body: {
-        settings: settings,
-        mappings: mappings
-      }
 
       log "Succesfully created '#{durl}/#{didx}'' with settings & mappings from '#{surl}/#{sidx}'"
     end
 
     true
+  end
+
+  def get_settings
+    unless settings = sclient.indices.get_settings(index: sidx)
+      log "Failed to obtain original index '#{surl}/#{sidx}' settings!"
+      return false
+    end
+
+    @settings = settings[sidx]["settings"]
+    @settings["index"]["version"].delete "created"
+  end
+
+  def get_mappings
+    unless mappings = sclient.indices.get_mapping(index: sidx)
+      log "Failed to obtain original index '#{surl}/#{sidx}' mappings!", :error
+      return false
+    end
+    @mappings = mappings[sidx]["mappings"]
   end
 
   def copy_docs
@@ -173,6 +199,10 @@ private
 
   def from_cli?
     @options[:from_cli]
+  end
+
+  def copy_mappings?
+    @options[:copy_mappings]
   end
 
   def tm_len
