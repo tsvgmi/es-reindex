@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/mojolingo/es-reindex.svg)](https://travis-ci.org/mojolingo/es-reindex)
+
 # es-reindex - simple ruby gem for copying ElasticSearch index
 
 Simple ruby gem to copy and reindex ElasticSearch index,
