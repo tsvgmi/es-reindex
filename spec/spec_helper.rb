@@ -16,6 +16,9 @@ RSpec.configure do |config|
   config.filter_run focus: true
   config.run_all_when_everything_filtered = true
 
+  ESReindex.logger = Logger.new(STDERR)
+  ESReindex.logger.level = Logger::WARN
+
   # Make sure our indexes are clear for a fresh start
   config.before type: :integration do
     Elasticsearch::Client.new(host: ES_HOST).indices.tap do |es|
