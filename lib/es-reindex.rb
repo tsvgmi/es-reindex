@@ -11,6 +11,7 @@ class ESReindex
     @src     = src || ''
     @dst     = dst || ''
     @options = {
+      from_cli: false, # Coming from CLI?
       remove: false, # remove the index in the new location first
       update: false, # update existing documents (default: only create non-existing)
       frame:  1000   # specify frame size to be obtained with one fetch during scrolling
@@ -20,6 +21,15 @@ class ESReindex
   end
 
   def go!
+    success = copy_mappings
+    if from_cli?
+      exit (success ? 0 : 1)
+    else
+      success
+    end
+  end
+
+  def copy_mappings
     MultiJson.load_options = {mode: :compat}
     MultiJson.dump_options = {mode: :compat}
 
@@ -50,7 +60,7 @@ class ESReindex
       # obtain the original index settings first
       unless settings = retried_request(:get, "#{surl}/#{sidx}/_settings")
         warn "Failed to obtain original index '#{surl}/#{sidx}' settings!"
-        exit 1
+        return false
       end
       settings = MultiJson.load settings
       sidx = settings.keys[0]
@@ -58,13 +68,13 @@ class ESReindex
       printf 'Creating \'%s/%s\' index with settings from \'%s/%s\'... ', durl, didx, surl, sidx
       unless retried_request :post, "#{durl}/#{didx}", MultiJson.dump(settings[sidx])
         puts 'FAILED!'
-        exit 1
+        return false
       else
         puts 'OK.'
       end
       unless mappings = retried_request(:get, "#{surl}/#{sidx}/_mapping")
         warn "Failed to obtain original index '#{surl}/#{sidx}' mappings!"
-        exit 1
+        return false
       end
       mappings = MultiJson.load mappings
       mappings = mappings[sidx]
@@ -73,7 +83,7 @@ class ESReindex
         printf 'Copying mapping \'%s/%s/%s\'... ', durl, didx, type
         unless retried_request(:put, "#{durl}/#{didx}/#{type}/_mapping", MultiJson.dump(type => mapping))
           puts 'FAILED!'
-          exit 1
+          return false
         else
           puts 'OK.'
         end
@@ -139,7 +149,7 @@ class ESReindex
     end
     printf "%u == %u (%s\n", scount, dcount, scount == dcount ? 'equals).' : 'NOT EQUAL)!'
 
-    exit 0
+    true
   end
 
 private
@@ -154,6 +164,10 @@ private
 
   def frame
     @options[:frame]
+  end
+
+  def from_cli?
+    @options[:from_cli]
   end
 
   def tm_len
