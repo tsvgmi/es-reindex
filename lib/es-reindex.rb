@@ -44,13 +44,14 @@ class ESReindex
       end
     end
 
-    printf "Copying '%s/%s' to '%s/%s'%s\n  Confirm or hit Ctrl-c to abort...\n",
+    confirm_msg = from_cli? ? "Confirm or hit Ctrl-c to abort...\n" : ""
+    printf "Copying '%s/%s' to '%s/%s'%s\n  #{confirm_msg}",
       surl, sidx, durl, didx,
       remove? ?
         ' with rewriting destination mapping!' :
         update? ? ' with updating existing documents!' : '.'
 
-    $stdin.readline
+    $stdin.readline if from_cli?
 
     # remove old index in case of remove=true
     retried_request(:delete, "#{durl}/#{didx}") if remove? && retried_request(:get, "#{durl}/#{didx}/_status")
