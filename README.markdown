@@ -9,12 +9,10 @@ Progress and time estimation is displayed during the scrolling process.
 
 ## Requirements
 
-Ruby 1.9.3 or newer is required, use [rvm](https://rvm.io/) for convenience.
-
-Following gems are required:
-
-+ [rest-client](https://github.com/archiloque/rest-client)
-+ [multi_json](https://github.com/intridea/multi_json)
+- Ruby 1.9.3 or newer
+- Gems:
+  - [rest-client](https://github.com/archiloque/rest-client)
+  - [multi_json](https://github.com/intridea/multi_json)
 
 ## Usage (command line)
 
