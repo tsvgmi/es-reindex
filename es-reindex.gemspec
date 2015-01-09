@@ -22,13 +22,12 @@ Gem::Specification.new do |s|
   s.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
   s.require_paths = ["lib"]
 
-  s.add_runtime_dependency 'rest-client', '>= 1.6.0'
-  s.add_runtime_dependency 'multi_json', '>= 1.0'
+  s.add_runtime_dependency 'elasticsearch', '>= 1.0.0'
 
   # Development Dependencies:
+  s.add_development_dependency 'elasticsearch-persistence', '~> 0.1'
   s.add_development_dependency %q<bundler>, ["~> 1.0"]
   s.add_development_dependency %q<rake>, [">= 0"]
-  s.add_development_dependency 'elasticsearch-persistence', '~> 0.1'
 
   # Testing Dependencies:
   s.add_development_dependency %q<coveralls>, ['>= 0']
