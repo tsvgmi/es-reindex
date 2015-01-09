@@ -21,6 +21,7 @@ class ESReindex
   end
 
   def go!
+    setup_json_options
     success = copy_mappings
     if from_cli?
       exit (success ? 0 : 1)
@@ -30,9 +31,6 @@ class ESReindex
   end
 
   def copy_mappings
-    MultiJson.load_options = {mode: :compat}
-    MultiJson.dump_options = {mode: :compat}
-
     surl, durl, sidx, didx = '', '', '', ''
     [[src, surl, sidx], [dst, durl, didx]].each do |param, url, idx|
       if param =~ %r{^(.*)/(.*?)$}
@@ -154,6 +152,15 @@ class ESReindex
   end
 
 private
+
+  def setup_json_options
+    if MultiJson.respond_to? :load_options=
+      MultiJson.load_options = {mode: :compat}
+      MultiJson.dump_options = {mode: :compat}
+    else
+      MultiJson.default_options = {mode: :compat}
+    end
+  end
 
   def remove?
     @options[:remove]
