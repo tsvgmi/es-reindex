@@ -26,4 +26,4 @@ end
 src, dst, options = ESReindex::ArgsParser.parse(ARGV)
 ESReindex.logger = Logger.new(STDOUT)
 ESReindex.logger.level = Logger::INFO
-ESReindex.new(src, dst, options.merge(from_cli: true)).go!
+ESReindex.copy! src, dst, options.merge(from_cli: true)

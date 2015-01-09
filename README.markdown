@@ -49,7 +49,7 @@ options = {
   update: true
 }
 
-ESReindex.new('http://my_server/index', 'http://my_server/index_copy', options).go!
+ESReindex.copy! 'http://my_server/index', 'http://my_server/index_copy', options
 ```
 
 ## Changelog
