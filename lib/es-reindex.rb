@@ -19,7 +19,7 @@ class ESReindex
 
     @done = 0
 
-    surl, durl, sidx, didx = '', '', '', ''
+    @surl, @durl, @sidx, @didx = '', '', '', ''
     [[src, surl, sidx], [dst, durl, didx]].each do |param, url, idx|
       if param =~ %r{^(.*)/(.*?)$}
         url.replace $1
