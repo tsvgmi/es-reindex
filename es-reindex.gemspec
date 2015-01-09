@@ -25,9 +25,13 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'rest-client', '>= 1.6.0'
   s.add_runtime_dependency 'multi_json', '>= 1.0'
 
-  s.add_development_dependency %q<coveralls>, ['>= 0']
+  # Development Dependencies:
   s.add_development_dependency %q<bundler>, ["~> 1.0"]
-  s.add_development_dependency %q<rspec>, ["~> 2.99"]
   s.add_development_dependency %q<rake>, [">= 0"]
+  s.add_development_dependency 'elasticsearch-persistence', '~> 0.1'
+
+  # Testing Dependencies:
+  s.add_development_dependency %q<coveralls>, ['>= 0']
+  s.add_development_dependency %q<rspec>, ["~> 2.99"]
   s.add_development_dependency %q<guard-rspec>, ['~> 4.5']
  end
