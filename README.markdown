@@ -90,6 +90,17 @@ ESReindex.copy! 'http://my_server/index', 'http://my_server/index_copy',
 + __0.0.2__: repated document count comparison
 + __0.0.1__: first revision
 
+## Credits
+
+- [Justin Aiken](https://github.com/JustinAiken)
+- [Victor Luft](https://github.com/victorluft)
+
+Original script:
+  - @geronime
+  - @pgaertig
+
+Developed by [Mojo Lingo](http://mojolingo.com).
+
 ## License
 es-reindex the gem is copyright (c)2014 Mojo Lingo, and released under the terms
 of the MIT license. See the LICENSE file for the gory details.

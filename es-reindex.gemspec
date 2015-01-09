@@ -6,8 +6,8 @@ require "es-reindex/version"
 Gem::Specification.new do |s|
   s.name        = "es-reindex"
   s.version     = ESReindex::VERSION
-  s.authors     = ["Justin Aiken"]
-  s.email       = ["jaiken@mojolingo.com"]
+  s.authors     = ["Justin Aiken", "Victor Luft"]
+  s.email       = ["jaiken@mojolingo.com", "vluft@mojolingo.com"]
   s.homepage    = "https://github.com/mojolingo/es-reindex"
   s.summary     = %q{Ruby gem to copy ElasticSearch index (reindex).}
   s.description = %q{Ruby gem to copy ElasticSearch index (reindex).}
