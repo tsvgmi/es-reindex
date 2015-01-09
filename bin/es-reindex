@@ -24,4 +24,6 @@ if ARGV.size == 0 or ARGV[0] =~ /^-(?:h|-?help)$/
 end
 
 src, dst, options = ESReindex::ArgsParser.parse(ARGV)
+ESReindex.logger = Logger.new(STDOUT)
+ESReindex.logger.level = Logger::INFO
 ESReindex.new(src, dst, options.merge(from_cli: true)).go!
