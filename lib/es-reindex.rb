@@ -16,6 +16,13 @@ class ESReindex
     end
   end
 
+  def self.reindex!(src, dst, options={})
+    self.new(src, dst, options.merge(copy_mappings: false)).tap do |reindexer|
+      reindexer.setup_index_urls
+      reindexer.copy!
+    end
+  end
+
   def initialize(src, dst, options = {})
     ESReindex.logger ||= Logger.new(STDERR)
 
@@ -85,19 +92,13 @@ class ESReindex
         return false unless get_mappings
         create_msg = " with settings & mappings from '#{surl}/#{sidx}'"
       else
+        @mappings = options[:mappings].call
+        @settings = options[:settings].call
         create_msg = ""
       end
-
       log "Creating '#{durl}/#{didx}' index#{create_msg}..."
 
-      if copy_mappings?
-        dclient.indices.create index: didx, body: {
-          settings: settings,
-          mappings: mappings
-        }
-      else
-        dclient.indices.create index: didx
-      end
+      dclient.indices.create index: didx, body: { settings: settings, mappings: mappings }
 
       log "Succesfully created '#{durl}/#{didx}'' with settings & mappings from '#{surl}/#{sidx}'"
     end
