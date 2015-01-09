@@ -11,8 +11,7 @@ Progress and time estimation is displayed during the scrolling process.
 
 - Ruby 1.9.3 or newer
 - Gems:
-  - [rest-client](https://github.com/archiloque/rest-client)
-  - [multi_json](https://github.com/intridea/multi_json)
+  - [elasticsearch](https://github.com/elasticsearch/elasticsearch-ruby)
 
 ## Usage (command line)
 

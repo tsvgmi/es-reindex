@@ -1,5 +1,4 @@
-require 'rest-client'
-require 'multi_json'
+require 'elasticsearch'
 require 'logger'
 
 require 'es-reindex/railtie' if defined?(Rails)
@@ -8,12 +7,11 @@ class ESReindex
 
   DEFAULT_URL = 'http://127.0.0.1:9200'
 
-  attr_accessor :src, :dst, :options, :surl, :durl, :sidx, :didx, :start_time, :done
+  attr_accessor :src, :dst, :options, :surl, :durl, :sidx, :didx, :sclient, :dclient, :start_time, :done
 
-  def self.copy!(src, dst, options)
+  def self.copy!(src, dst, options = {})
     self.new(src, dst, options).tap do |reindexer|
       reindexer.setup_index_urls
-      reindexer.setup_json_options
       reindexer.go!
     end
   end
@@ -44,6 +42,9 @@ class ESReindex
         idx.replace param
       end
     end
+
+    @sclient = Elasticsearch::Client.new host: surl
+    @dclient = Elasticsearch::Client.new host: durl
   end
 
   def go!
@@ -65,41 +66,32 @@ class ESReindex
 
   def copy_mappings
     # remove old index in case of remove=true
-    retried_request(:delete, "#{durl}/#{didx}") if remove? && retried_request(:get, "#{durl}/#{didx}/_status")
+    dclient.indices.delete(index: didx) if remove? && dclient.indices.exists(index: didx)
 
     # (re)create destination index
-    unless retried_request :get, "#{durl}/#{didx}/_status"
+    unless dclient.indices.exists index: didx
       # obtain the original index settings first
-      unless settings = retried_request(:get, "#{surl}/#{sidx}/_settings")
+      unless settings = sclient.indices.get_settings(index: sidx)
         log "Failed to obtain original index '#{surl}/#{sidx}' settings!"
         return false
       end
-      settings = MultiJson.load settings
-      sidx = settings.keys[0]
-      settings[sidx].delete 'index.version.created'
-      log "Creating '#{durl}/#{didx}' index with settings from '%#{surl}/%#{sidx}'..."
-      unless retried_request :post, "#{durl}/#{didx}", MultiJson.dump(settings[sidx])
-        log "Creating index #{durl}/#{didx} failed!", :error
-        return false
-      else
-        puts 'OK.'
-      end
-      unless mappings = retried_request(:get, "#{surl}/#{sidx}/_mapping")
+      settings = settings[sidx]["settings"]
+      settings["index"]["version"].delete "created"
+
+      unless mappings = sclient.indices.get_mapping(index: sidx)
         log "Failed to obtain original index '#{surl}/#{sidx}' mappings!", :error
         return false
       end
-      mappings = MultiJson.load mappings
-      mappings = mappings[sidx]
-      mappings = mappings['mappings'] if mappings.is_a?(Hash) && mappings.has_key?('mappings')
-      mappings.each_pair do |type, mapping|
-        ESReindex.logger.info "Copying mapping '#{durl}/#{didx}/#{type}'..."
-        unless retried_request(:put, "#{durl}/#{didx}/#{type}/_mapping", MultiJson.dump(type => mapping))
-          ESReindex.logger.error "Copying mapping '#{durl}/#{didx}/#{type}' failed!"
-          return false
-        else
-          ESReindex.logger.info "Copying mapping '#{durl}/#{didx}/#{type}' OK."
-        end
-      end
+      mappings = mappings[sidx]["mappings"]
+
+      log "Creating '#{durl}/#{didx}' index with settings & mappings from '#{surl}/#{sidx}'..."
+
+      dclient.indices.create index: didx, body: {
+        settings: settings,
+        mappings: mappings
+      }
+
+      log "Succesfully created '#{durl}/#{didx}'' with settings & mappings from '#{surl}/#{sidx}'"
     end
 
     true
@@ -108,41 +100,29 @@ class ESReindex
   def copy_docs
     log "Copying '#{surl}/#{sidx}' to '#{durl}/#{didx}'..."
     @start_time = Time.now
-    shards = retried_request :get, "#{surl}/#{sidx}/_count?q=*"
-    shards = MultiJson.load(shards)['_shards']['total'].to_i
-    scan = retried_request :get, "#{surl}/#{sidx}/_search?search_type=scan&scroll=10m&size=#{frame / shards}"
-    scan = MultiJson.load scan
-    scroll_id = scan['_scroll_id']
-    total = scan['hits']['total']
+
+    scroll = sclient.search index: sidx, search_type: "scan", scroll: '10m', size: frame
+    scroll_id = scroll['_scroll_id']
+    total = scroll['hits']['total']
     log "Copy progress: %u/%u (%.1f%%) done.\r" % [done, total, 0]
 
-    bulk_op = update? ? 'index' : 'create'
+    action = update? ? 'index' : 'create'
 
-    while true do
-      data = retried_request :get, "#{surl}/_search/scroll?scroll=10m&scroll_id=#{scroll_id}"
-      data = MultiJson.load data
-      break if data['hits']['hits'].empty?
-      scroll_id = data['_scroll_id']
-      bulk = ''
-      data['hits']['hits'].each do |doc|
+    while scroll = sclient.scroll(scroll_id: scroll['_scroll_id'], scroll: '10m') and not scroll['hits']['hits'].empty? do
+      bulk = []
+      scroll['hits']['hits'].each do |doc|
         ### === implement possible modifications to the document
         ### === end modifications to the document
-        base = {'_index' => didx, '_id' => doc['_id'], '_type' => doc['_type']}
-        ['_timestamp', '_ttl'].each{|doc_arg|
-          base[doc_arg] = doc[doc_arg] if doc.key? doc_arg
-        }
-        bulk << MultiJson.dump(bulk_op => base) + "\n"
-        bulk << MultiJson.dump(doc['_source'])  + "\n"
+        base = {'_index' => didx, '_id' => doc['_id'], '_type' => doc['_type'], data: doc['_source']}
+        bulk << {action => base}
         @done = done + 1
       end
       unless bulk.empty?
-        bulk << "\n" # empty line in the end required
-        retried_request :post, "#{durl}/_bulk", bulk
+        dclient.bulk body: bulk
       end
 
       eta = total * (Time.now - start_time) / done
-      ESReindex.logger.info "Copy progress: %u/%u (%.1f%%) done in %s, E.T.A. : %s.\r" %
-                  [done, total, 100.0 * done / total, tm_len, start_time + eta]
+      log "Copy progress: #{done}/#{total} (%.1f%%) done in #{tm_len}. E.T.A.: #{start_time + eta}." % (100.0 * done / total)
     end
 
     log "Copy progress: %u/%u done in %s.\n" % [done, total, tm_len]
@@ -156,32 +136,21 @@ class ESReindex
     begin
       Timeout::timeout(60) do
         while true
-          scount = retried_request :get, "#{surl}/#{sidx}/_count?q=*"
-          dcount = retried_request :get, "#{durl}/#{didx}/_count?q=*"
-          scount = MultiJson.load(scount)['count'].to_i
-          dcount = MultiJson.load(dcount)['count'].to_i
+          scount = sclient.count(index: sidx)["count"]
+          dcount = dclient.count(index: didx)["count"]
           break if scount == dcount
           sleep 1
         end
       end
     rescue Timeout::Error
     end
-    log "Document count: #{scount} == #{dcount} (#{scount == dcount ? 'equal' : 'NOT EQUAL'})"
+    log "Document count: #{scount} = #{dcount} (#{scount == dcount ? 'equal' : 'NOT EQUAL'})"
 
     scount == dcount
   end
 
   class << self
     attr_accessor :logger
-  end
-
-  def setup_json_options
-    if MultiJson.respond_to? :load_options=
-      MultiJson.load_options = {mode: :compat}
-      MultiJson.dump_options = {mode: :compat}
-    else
-      MultiJson.default_options = {mode: :compat}
-    end
   end
 
 private
@@ -219,22 +188,4 @@ private
     out
   end
 
-  def retried_request(method, url, data=nil)
-    while true
-      begin
-        return data ?
-          RestClient.send(method, url, data) :
-          RestClient.send(method, url)
-      rescue RestClient::ResourceNotFound # no point to retry
-        return nil
-      rescue RestClient::BadRequest => e # Something's wrong!
-        log "\n#{method.to_s.upcase} #{url} :-> ERROR: #{e.class} - #{e.message}", :warn
-        log e.response, :warn
-        return nil
-      rescue => e
-        log "\nRetrying #{method.to_s.upcase} ERROR: #{e.class} - #{e.message}", :warn
-        log e.response, :warn
-      end
-    end
-  end
 end
