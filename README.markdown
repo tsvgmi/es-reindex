@@ -54,6 +54,7 @@ ESReindex.new('http://my_server/index', 'http://my_server/index_copy', options).
 
 ## Changelog
 
++ __0.1.0__: First gem release
 + __0.0.9__: Gemification, Oj -> MultiJSON
 + __0.0.8__: Optimization in string concat (@nara)
 + __0.0.7__: Document header arguments `_timestamp` and `_ttl` are copied as well
