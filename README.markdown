@@ -79,6 +79,7 @@ ESReindex.copy! 'http://my_server/index', 'http://my_server/index_copy',
 
 ## Changelog
 
++ __0.2.1__: [BUGFIX] Improve callback presence check
 + __0.2.0__: Lots of bugfixes, use elasticsearch client gem, add .reindex! method and callbacks
 + __0.1.0__: First gem release
 + __0.0.9__: Gemification, Oj -> MultiJSON
