@@ -32,16 +32,6 @@ class ESReindex
   end
 
   def go!
-    setup_json_options
-    success = copy_mappings && copy_docs
-    if from_cli?
-      exit (success ? 0 : 1)
-    else
-      success
-    end
-  end
-
-  def copy_mappings
     confirm_msg = from_cli? ? "Confirm or hit Ctrl-c to abort...\n" : ""
     printf "Copying '%s/%s' to '%s/%s'%s\n  #{confirm_msg}",
       @surl, @sidx, @durl, @didx,
@@ -51,6 +41,18 @@ class ESReindex
 
     $stdin.readline if from_cli?
 
+
+    setup_json_options
+
+    success = copy_mappings && copy_docs
+    if from_cli?
+      exit (success ? 0 : 1)
+    else
+      success
+    end
+  end
+
+  def copy_mappings
     # remove old index in case of remove=true
     retried_request(:delete, "#{@durl}/#{@didx}") if remove? && retried_request(:get, "#{@durl}/#{@didx}/_status")
 
