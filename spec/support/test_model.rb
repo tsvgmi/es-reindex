@@ -1,7 +1,8 @@
 require 'elasticsearch/persistence/model'
 
 def test_klass(options)
-  index_name = options[:index_name]
+  index_name  = options[:index_name]
+  extra_attrs = options[:attributes] || []
 
   Class.new do
     def self.name; 'TestKlass'; end
@@ -13,5 +14,7 @@ def test_klass(options)
 
     attribute :id
     attribute :text
+
+    extra_attrs.each { |att| attribute att }
   end
 end

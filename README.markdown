@@ -37,6 +37,8 @@ Usage:
 
 You can also use it as a PORO:
 
+#### To Copy
+
 ```ruby
 # Options:
 # remove: same as -r
@@ -49,6 +51,30 @@ options = {
 }
 
 ESReindex.copy! 'http://my_server/index', 'http://my_server/index_copy', options
+```
+
+#### To Reindex
+
+If you want to reindex the destination from the source without copying the mappings/settings from the source, you can do it as such:
+
+```ruby
+ESReindex.reindex! 'http://my_server/index', 'http://my_server/index_copy',
+  mappings: -> { set_of_mappings },
+  settings: -> { set_of_settings}
+```
+
+If using the `.reindex!` method, you MUST pass valid mappings/settings in via the options.
+
+#### Callbacks
+There also a set of callbacks you can use:
+
+```ruby
+ESReindex.copy! 'http://my_server/index', 'http://my_server/index_copy',
+  before_create: ->    { do_something },      # Runs before the (re)creation of the destination index
+  after_create:  ->    { do_something_else }, # Runs after the (re)creation of the destinatino index
+  before_each:   ->doc { use_the doc },       # Runs before each document is copied
+  after_each:    ->doc { foo_bar doc },       # Runs after each document is copied
+  after_copy:    ->    { finish_thing }       # Runs after everything is copied over
 ```
 
 ## Changelog
