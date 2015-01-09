@@ -50,7 +50,7 @@ class ESReindex
     log "Copying '#{surl}/#{sidx}' to '#{durl}/#{didx}'#{remove? ? ' with rewriting destination mapping!' : update? ? ' with updating existing documents!' : '.'}"
     confirm if from_cli?
 
-    success = copy_mappings && copy_docs
+    success = copy_mappings && copy_docs && check_docs
     if from_cli?
       exit (success ? 0 : 1)
     else
@@ -146,8 +146,11 @@ class ESReindex
     end
 
     log "Copy progress: %u/%u done in %s.\n" % [done, total, tm_len]
+    
+    true    
+  end
 
-    # no point for large reindexation with data still being stored in index
+  def check_docs
     log 'Checking document count... '
     scount, dcount = 1, 0
     begin
@@ -165,7 +168,7 @@ class ESReindex
     end
     log "Document count: #{scount} == #{dcount} (#{scount == dcount ? 'equal' : 'NOT EQUAL'})"
 
-    true
+    scount == dcount
   end
 
   class << self

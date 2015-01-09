@@ -39,9 +39,10 @@ describe ESReindex do
 
       it "exits 0 on success" do
         reindexer.stub :confirm
-        
+
         expect(reindexer).to receive(:copy_mappings).and_return true
         expect(reindexer).to receive(:copy_docs).and_return true
+        expect(reindexer).to receive(:check_docs).and_return true
         expect(reindexer).to receive(:exit).with 0
       end
     end
