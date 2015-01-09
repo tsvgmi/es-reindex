@@ -19,7 +19,7 @@ describe ESReindex do
     after { reindexer.copy! }
 
     before do
-      %i{
+      %w{
         confirm clear_destination create_destination copy_docs check_docs
       }.each { |meth| reindexer.stub(meth).and_return true }
     end
