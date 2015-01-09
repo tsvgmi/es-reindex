@@ -5,7 +5,7 @@ class ESReindex
 
   DEFAULT_URL = 'http://127.0.0.1:9200'
 
-  attr_accessor :src, :dst, :options, :start_time, :done
+  attr_accessor :src, :dst, :options, :surl, :durl, :sidx, :didx, :start_time, :done
 
   def initialize(src, dst, options = {})
     @src     = src || ''
@@ -19,8 +19,8 @@ class ESReindex
 
     @done = 0
 
-    @surl, @durl, @sidx, @didx = '', '', '', ''
-    [[src, @surl, @sidx], [dst, @durl, @didx]].each do |param, url, idx|
+    surl, durl, sidx, didx = '', '', '', ''
+    [[src, surl, sidx], [dst, durl, didx]].each do |param, url, idx|
       if param =~ %r{^(.*)/(.*?)$}
         url.replace $1
         idx.replace $2
@@ -32,15 +32,7 @@ class ESReindex
   end
 
   def go!
-    confirm_msg = from_cli? ? "Confirm or hit Ctrl-c to abort...\n" : ""
-    printf "Copying '%s/%s' to '%s/%s'%s\n  #{confirm_msg}",
-      @surl, @sidx, @durl, @didx,
-      remove? ?
-        ' with rewriting destination mapping!' :
-        update? ? ' with updating existing documents!' : '.'
-
-    $stdin.readline if from_cli?
-
+    confirm if from_cli?
 
     setup_json_options
 
@@ -52,37 +44,48 @@ class ESReindex
     end
   end
 
+  def confirm
+    confirm_msg = "Confirm or hit Ctrl-c to abort...\n" 
+    printf "Copying '%s/%s' to '%s/%s'%s\n  #{confirm_msg}",
+      surl, sidx, durl, didx,
+      remove? ?
+        ' with rewriting destination mapping!' :
+        update? ? ' with updating existing documents!' : '.'
+
+    $stdin.readline
+  end
+
   def copy_mappings
     # remove old index in case of remove=true
-    retried_request(:delete, "#{@durl}/#{@didx}") if remove? && retried_request(:get, "#{@durl}/#{@didx}/_status")
+    retried_request(:delete, "#{durl}/#{didx}") if remove? && retried_request(:get, "#{durl}/#{didx}/_status")
 
     # (re)create destination index
-    unless retried_request :get, "#{@durl}/#{@didx}/_status"
+    unless retried_request :get, "#{durl}/#{didx}/_status"
       # obtain the original index settings first
-      unless settings = retried_request(:get, "#{@surl}/#{@sidx}/_settings")
-        warn "Failed to obtain original index '#{@surl}/#{@sidx}' settings!"
+      unless settings = retried_request(:get, "#{surl}/#{sidx}/_settings")
+        warn "Failed to obtain original index '#{surl}/#{sidx}' settings!"
         return false
       end
       settings = MultiJson.load settings
-      @sidx = settings.keys[0]
-      settings[@sidx].delete 'index.version.created'
-      printf 'Creating \'%s/%s\' index with settings from \'%s/%s\'... ', @durl, @didx, @surl, @sidx
-      unless retried_request :post, "#{@durl}/#{@didx}", MultiJson.dump(settings[@sidx])
+      sidx = settings.keys[0]
+      settings[sidx].delete 'index.version.created'
+      printf 'Creating \'%s/%s\' index with settings from \'%s/%s\'... ', durl, didx, surl, sidx
+      unless retried_request :post, "#{durl}/#{didx}", MultiJson.dump(settings[sidx])
         puts 'FAILED!'
         return false
       else
         puts 'OK.'
       end
-      unless mappings = retried_request(:get, "#{@surl}/#{@sidx}/_mapping")
-        warn "Failed to obtain original index '#{@surl}/#{@sidx}' mappings!"
+      unless mappings = retried_request(:get, "#{surl}/#{sidx}/_mapping")
+        warn "Failed to obtain original index '#{surl}/#{sidx}' mappings!"
         return false
       end
       mappings = MultiJson.load mappings
-      mappings = mappings[@sidx]
+      mappings = mappings[sidx]
       mappings = mappings['mappings'] if mappings.is_a?(Hash) && mappings.has_key?('mappings')
       mappings.each_pair do |type, mapping|
-        printf 'Copying mapping \'%s/%s/%s\'... ', @durl, @didx, type
-        unless retried_request(:put, "#{@durl}/#{@didx}/#{type}/_mapping", MultiJson.dump(type => mapping))
+        printf 'Copying mapping \'%s/%s/%s\'... ', durl, didx, type
+        unless retried_request(:put, "#{durl}/#{didx}/#{type}/_mapping", MultiJson.dump(type => mapping))
           puts 'FAILED!'
           return false
         else
@@ -95,11 +98,11 @@ class ESReindex
   end
 
   def copy_docs
-    printf "Copying '%s/%s' to '%s/%s'... \n", @surl, @sidx, @durl, @didx
+    printf "Copying '%s/%s' to '%s/%s'... \n", surl, sidx, durl, didx
     @start_time = Time.now
-    shards = retried_request :get, "#{@surl}/#{@sidx}/_count?q=*"
+    shards = retried_request :get, "#{surl}/#{sidx}/_count?q=*"
     shards = MultiJson.load(shards)['_shards']['total'].to_i
-    scan = retried_request :get, "#{@surl}/#{@sidx}/_search?search_type=scan&scroll=10m&size=#{frame / shards}"
+    scan = retried_request :get, "#{surl}/#{sidx}/_search?search_type=scan&scroll=10m&size=#{frame / shards}"
     scan = MultiJson.load scan
     scroll_id = scan['_scroll_id']
     total = scan['hits']['total']
@@ -108,7 +111,7 @@ class ESReindex
     bulk_op = update? ? 'index' : 'create'
 
     while true do
-      data = retried_request :get, "#{@surl}/_search/scroll?scroll=10m&scroll_id=#{scroll_id}"
+      data = retried_request :get, "#{surl}/_search/scroll?scroll=10m&scroll_id=#{scroll_id}"
       data = MultiJson.load data
       break if data['hits']['hits'].empty?
       scroll_id = data['_scroll_id']
@@ -116,7 +119,7 @@ class ESReindex
       data['hits']['hits'].each do |doc|
         ### === implement possible modifications to the document
         ### === end modifications to the document
-        base = {'_index' => @didx, '_id' => doc['_id'], '_type' => doc['_type']}
+        base = {'_index' => didx, '_id' => doc['_id'], '_type' => doc['_type']}
         ['_timestamp', '_ttl'].each{|doc_arg|
           base[doc_arg] = doc[doc_arg] if doc.key? doc_arg
         }
@@ -126,7 +129,7 @@ class ESReindex
       end
       unless bulk.empty?
         bulk << "\n" # empty line in the end required
-        retried_request :post, "#{@durl}/_bulk", bulk
+        retried_request :post, "#{durl}/_bulk", bulk
       end
 
       eta = total * (Time.now - start_time) / done
@@ -142,8 +145,8 @@ class ESReindex
     begin
       Timeout::timeout(60) do
         while true
-          scount = retried_request :get, "#{@surl}/#{@sidx}/_count?q=*"
-          dcount = retried_request :get, "#{@durl}/#{@didx}/_count?q=*"
+          scount = retried_request :get, "#{surl}/#{sidx}/_count?q=*"
+          dcount = retried_request :get, "#{durl}/#{didx}/_count?q=*"
           scount = MultiJson.load(scount)['count'].to_i
           dcount = MultiJson.load(dcount)['count'].to_i
           break if scount == dcount

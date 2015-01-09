@@ -31,11 +31,15 @@ describe ESReindex do
       let(:options) { {from_cli: true} }
 
       it "exits 1 on failure" do
+        reindexer.stub :confirm
+
         expect(reindexer).to receive(:copy_mappings).and_return false
         expect(reindexer).to receive(:exit).with 1
       end
 
       it "exits 0 on success" do
+        reindexer.stub :confirm
+        
         expect(reindexer).to receive(:copy_mappings).and_return true
         expect(reindexer).to receive(:copy_docs).and_return true
         expect(reindexer).to receive(:exit).with 0
