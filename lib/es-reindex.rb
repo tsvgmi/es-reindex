@@ -10,6 +10,14 @@ class ESReindex
 
   attr_accessor :src, :dst, :options, :surl, :durl, :sidx, :didx, :start_time, :done
 
+  def self.copy!(src, dst, options)
+    self.new(src, dst, options).tap do |reindexer|
+      reindexer.setup_index_urls
+      reindexer.setup_json_options
+      reindexer.go!
+    end
+  end
+
   def initialize(src, dst, options = {})
     ESReindex.logger ||= Logger.new(STDERR)
 
@@ -23,7 +31,9 @@ class ESReindex
     }.merge! options
 
     @done = 0
+  end
 
+  def setup_index_urls
     @surl, @durl, @sidx, @didx = '', '', '', ''
     [[src, surl, sidx], [dst, durl, didx]].each do |param, url, idx|
       if param =~ %r{^(.*)/(.*?)$}
@@ -39,8 +49,6 @@ class ESReindex
   def go!
     log "Copying '#{surl}/#{sidx}' to '#{durl}/#{didx}'#{remove? ? ' with rewriting destination mapping!' : update? ? ' with updating existing documents!' : '.'}"
     confirm if from_cli?
-
-    setup_json_options
 
     success = copy_mappings && copy_docs
     if from_cli?
@@ -164,12 +172,6 @@ class ESReindex
     attr_accessor :logger
   end
 
-private
-
-  def log(msg, level = :info)
-    ESReindex.logger.send level, msg
-  end
-
   def setup_json_options
     if MultiJson.respond_to? :load_options=
       MultiJson.load_options = {mode: :compat}
@@ -177,6 +179,12 @@ private
     else
       MultiJson.default_options = {mode: :compat}
     end
+  end
+
+private
+
+  def log(msg, level = :info)
+    ESReindex.logger.send level, msg
   end
 
   def remove?
