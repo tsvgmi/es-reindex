@@ -15,8 +15,8 @@ describe ESReindex do
     expect(reindexer.done).to eq 0
   end
 
-  describe "#go!" do
-    after { reindexer.go! }
+  describe "#copy!" do
+    after { reindexer.copy! }
 
     context "when run as a PORO" do
 

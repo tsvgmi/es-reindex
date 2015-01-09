@@ -12,7 +12,7 @@ class ESReindex
   def self.copy!(src, dst, options = {})
     self.new(src, dst, options).tap do |reindexer|
       reindexer.setup_index_urls
-      reindexer.go!
+      reindexer.copy!
     end
   end
 
@@ -47,7 +47,7 @@ class ESReindex
     @dclient = Elasticsearch::Client.new host: durl
   end
 
-  def go!
+  def copy!
     log "Copying '#{surl}/#{sidx}' to '#{durl}/#{didx}'#{remove? ? ' with rewriting destination mapping!' : update? ? ' with updating existing documents!' : '.'}"
     confirm if from_cli?
 
