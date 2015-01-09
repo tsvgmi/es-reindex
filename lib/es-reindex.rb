@@ -126,8 +126,8 @@ class ESReindex
     end
 
     log "Copy progress: %u/%u done in %s.\n" % [done, total, tm_len]
-    
-    true    
+
+    true
   end
 
   def check_docs
