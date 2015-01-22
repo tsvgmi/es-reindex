@@ -97,13 +97,13 @@ class ESReindex
         create_msg = ""
       end
 
-      options[:before_create].call if options[:before_create] && options[:before_create].respond_to?(:call)
+      options[:before_create].try(:call)
 
       log "Creating '#{durl}/#{didx}' index#{create_msg}..."
       dclient.indices.create index: didx, body: { settings: settings, mappings: mappings }
       log "Succesfully created '#{durl}/#{didx}''#{create_msg}."
 
-      options[:after_create].call if options[:after_create] && options[:after_create].respond_to?(:call)
+      options[:after_create].try(:call)
     end
 
     true
@@ -141,13 +141,13 @@ class ESReindex
     while scroll = sclient.scroll(scroll_id: scroll['_scroll_id'], scroll: '10m') and not scroll['hits']['hits'].empty? do
       bulk = []
       scroll['hits']['hits'].each do |doc|
-        options[:before_each].call doc if options[:before_each] && options[:before_each].respond_to?(:call)
+        options[:before_each].try(:call)
         ### === implement possible modifications to the document
         ### === end modifications to the document
         base = {'_index' => didx, '_id' => doc['_id'], '_type' => doc['_type'], data: doc['_source']}
         bulk << {action => base}
         @done = done + 1
-        options[:after_each].call doc if options[:after_each] && options[:after_each].respond_to?(:call)
+        options[:after_each].try(:call)
       end
       unless bulk.empty?
         dclient.bulk body: bulk
@@ -159,7 +159,7 @@ class ESReindex
 
     log "Copy progress: %u/%u done in %s.\n" % [done, total, tm_len]
 
-    options[:after_copy].call if options[:after_copy] && options[:after_copy].respond_to?(:call)
+    options[:after_copy].try(:call)
 
     true
   end
