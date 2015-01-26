@@ -36,6 +36,14 @@ class ESReindex
       copy_mappings: true # Copy old mappings/settings
     }.merge! options
 
+    %w{
+      if unless mappings settings before_create after_create before_each after_each after_copy
+    }.each do |callback|
+      if options[callback.to_sym].present? && !options[callback.to_sym].respond_to?(:call)
+        raise ArgumentError, "#{callback} must be a callable object"
+      end
+    end
+
     @done = 0
   end
 
