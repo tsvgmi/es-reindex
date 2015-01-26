@@ -12,14 +12,14 @@ class ESReindex
   def self.copy!(src, dst, options = {})
     self.new(src, dst, options).tap do |reindexer|
       reindexer.setup_index_urls
-      reindexer.copy!
+      reindexer.copy! if reindexer.okay_to_proceed?
     end
   end
 
   def self.reindex!(src, dst, options={})
     self.new(src, dst, options.merge(copy_mappings: false)).tap do |reindexer|
       reindexer.setup_index_urls
-      reindexer.copy!
+      reindexer.copy! if reindexer.okay_to_proceed?
     end
   end
 
@@ -53,6 +53,16 @@ class ESReindex
 
     @sclient = Elasticsearch::Client.new host: surl
     @dclient = Elasticsearch::Client.new host: durl
+  end
+
+  def okay_to_proceed?
+    if options[:if].present?
+      options[:if].call sclient, dclient
+    elsif options[:unless].present?
+      !(options[:unless].call sclient, dclient)
+    else
+      true
+    end
   end
 
   def copy!
