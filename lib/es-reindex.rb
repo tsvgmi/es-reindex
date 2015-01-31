@@ -64,13 +64,11 @@ class ESReindex
   end
 
   def okay_to_proceed?
-    if options[:if].present?
-      options[:if].call sclient, dclient
-    elsif options[:unless].present?
-      !(options[:unless].call sclient, dclient)
-    else
-      true
-    end
+    okay = true
+    okay = options[:if].call(sclient, dclient) if options[:if].present?
+    okay = (okay && !(options[:unless].call sclient, dclient)) if options[:unless].present?
+    log 'Skipping action due to guard callbacks' unless okay
+    okay
   end
 
   def copy!
