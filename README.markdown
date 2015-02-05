@@ -77,8 +77,21 @@ ESReindex.copy! 'http://my_server/index', 'http://my_server/index_copy',
   after_copy:    ->    { finish_thing }       # Runs after everything is copied over
 ```
 
+#### Callbacks (guards)
+
+You can also use the `:if` or `:unless` callbacks to prevent the copy/reindexing from occuring if conditions are (un)met.  The source client and destination client are passed in:
+
+```ruby
+ESReindex.copy! 'http://my_server/index', 'http://my_server/index_copy',
+  if:     ->(sclient,dclient) { Time.now.hour > 20 },                 # Only copy the indexes if it's after 8pm
+  unless: ->(sclient,dclient) { Time.now.strftime("%A") == "Friday" } # Never copy on Fridays
+```
+
+For a more practical example, see the [reindex integration specs](spec/integration/reindex_spec.rb).
+
 ## Changelog
 
++ __0.3.0__: Add `:if` and `:unless` callbacks
 + __0.2.1__: [BUGFIX] Improve callback presence check
 + __0.2.0__: Lots of bugfixes, use elasticsearch client gem, add .reindex! method and callbacks
 + __0.1.0__: First gem release
