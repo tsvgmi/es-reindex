@@ -11,6 +11,16 @@ describe ESReindex do
     expect(reindexer.options).to eq remove: false, update: true, frame: 1000, from_cli: false, copy_mappings: true
   end
 
+  context "with invalid callback options" do
+    let(:options) { {if: :not_a_proc} }
+
+    it "fails" do
+      expect{
+        reindexer
+      }.to raise_error ArgumentError, "if must be a callable object"
+    end
+  end
+
   it "starts with 0 indexes done" do
     expect(reindexer.done).to eq 0
   end

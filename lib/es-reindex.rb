@@ -12,14 +12,14 @@ class ESReindex
   def self.copy!(src, dst, options = {})
     self.new(src, dst, options).tap do |reindexer|
       reindexer.setup_index_urls
-      reindexer.copy!
+      reindexer.copy! if reindexer.okay_to_proceed?
     end
   end
 
   def self.reindex!(src, dst, options={})
     self.new(src, dst, options.merge(copy_mappings: false)).tap do |reindexer|
       reindexer.setup_index_urls
-      reindexer.copy!
+      reindexer.copy! if reindexer.okay_to_proceed?
     end
   end
 
@@ -35,6 +35,14 @@ class ESReindex
       frame:  1000,  # specify frame size to be obtained with one fetch during scrolling
       copy_mappings: true # Copy old mappings/settings
     }.merge! options
+
+    %w{
+      if unless mappings settings before_create after_create before_each after_each after_copy
+    }.each do |callback|
+      if options[callback.to_sym].present? && !options[callback.to_sym].respond_to?(:call)
+        raise ArgumentError, "#{callback} must be a callable object"
+      end
+    end
 
     @done = 0
   end
@@ -53,6 +61,14 @@ class ESReindex
 
     @sclient = Elasticsearch::Client.new host: surl
     @dclient = Elasticsearch::Client.new host: durl
+  end
+
+  def okay_to_proceed?
+    okay = true
+    okay = options[:if].call(sclient, dclient) if options[:if].present?
+    okay = (okay && !(options[:unless].call sclient, dclient)) if options[:unless].present?
+    log 'Skipping action due to guard callbacks' unless okay
+    okay
   end
 
   def copy!

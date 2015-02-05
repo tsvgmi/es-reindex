@@ -8,7 +8,6 @@ describe "reindex!", type: :integration do
   let!(:new_klass)       { test_klass index_name: new_index_name, attributes: [:foo] }
 
   let(:test_post)        { original_klass.create id: 1, text: 'test_post' }
-  let(:test_post_2)      { new_klass.create      id: 2, text: 'other_post' }
 
   # Create the index (test_index) on the test_klass:
   before do
@@ -19,13 +18,55 @@ describe "reindex!", type: :integration do
 
   let(:reindexed_post) { new_klass.find test_post.id }
 
+  let(:reindex)    { ESReindex.reindex! "#{ES_HOST}/#{orig_index_name}", "#{ES_HOST}/#{new_index_name}", opts }
+  let(:mappings)   { ->{ new_klass.mappings } }
+  let(:settings)   { ->{ new_klass.settings } }
+  let(:other_opts) { {} }
+  let(:opts)       { {mappings: mappings, settings: settings}.merge other_opts }
+
   it "reindexes with the selected mappings" do
-    ESReindex.reindex! "#{ES_HOST}/#{orig_index_name}", "#{ES_HOST}/#{new_index_name}",
-      mappings: -> { new_klass.mappings },
-      settings: -> { new_klass.settings }
+    reindex
 
     expect(reindexed_post.id).to   eq test_post.id
     expect(reindexed_post.text).to eq test_post.text
     expect(reindexed_post).to respond_to :foo
+  end
+
+  context "with a :unless guard" do
+    let(:other_opts) do
+      {
+        unless: ->(sclient,dclient) {
+          existing_properties = sclient.indices.get_mapping(index: orig_index_name)[orig_index_name]['mappings']['test_klass']['properties']
+          existing_mappings = existing_properties.inject({}) do |result, (k,v)|
+            result[k.to_sym] = {type: v['type']}
+            result
+          end
+          new_mappings = klass_to_use_as_source.mappings.to_hash[:test_klass][:properties]
+          existing_mappings.sort == new_mappings.sort
+        }
+      }
+    end
+
+    context "when the unless call returns true" do
+      let(:klass_to_use_as_source) { original_klass }
+
+      it "does not reindex" do
+        reindex
+        original_klass.refresh_index!
+        expect(test_post.id).to be_present
+        expect { test_post.foo}.to raise_error NoMethodError
+      end
+    end
+
+    context "when the unless call returns false" do
+      let(:klass_to_use_as_source) { new_klass }
+
+      it "reindexes" do
+        reindex
+        expect(reindexed_post.id).to   eq test_post.id
+        expect(reindexed_post.text).to eq test_post.text
+        expect(reindexed_post).to respond_to :foo
+      end
+    end
   end
 end
