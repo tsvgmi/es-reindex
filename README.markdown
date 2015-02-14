@@ -91,6 +91,7 @@ For a more practical example, see the [reindex integration specs](spec/integrati
 
 ## Changelog
 
++ __next__:  Add activesupport dependency since es-reindex uses methods from it.
 + __0.3.0__: Add `:if` and `:unless` callbacks
 + __0.2.1__: [BUGFIX] Improve callback presence check
 + __0.2.0__: Lots of bugfixes, use elasticsearch client gem, add .reindex! method and callbacks
