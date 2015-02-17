@@ -23,7 +23,6 @@ Gem::Specification.new do |s|
   s.require_paths = ["lib"]
 
   s.add_runtime_dependency 'elasticsearch', '>= 1.0.0'
-  s.add_runtime_dependency 'activesupport', '>= 0'
 
   # Development Dependencies:
   s.add_development_dependency 'elasticsearch-persistence', '~> 0.1'
