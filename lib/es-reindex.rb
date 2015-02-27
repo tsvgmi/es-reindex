@@ -131,7 +131,7 @@ class ESReindex
       return false
     end
 
-    @settings = settings[sidx]["settings"]
+    @settings = fetch_index_config(settings, sidx)["settings"]
     @settings["index"]["version"].delete "created"
   end
 
@@ -140,7 +140,7 @@ class ESReindex
       log "Failed to obtain original index '#{surl}/#{sidx}' mappings!", :error
       return false
     end
-    @mappings = mappings[sidx]["mappings"]
+    @mappings = fetch_index_config(mappings, sidx)["mappings"]
   end
 
   def copy_docs
@@ -240,6 +240,13 @@ private
     out = out == '0' ? '' : out + ' days, '
     out << sprintf('%u:%02u:%02u', *t)
     out
+  end
+
+  # Accounts for aliased indices. When index is aliased there will not
+  # be a key nor in settings, nor in mappings. But there will be the
+  # only key for original index name.
+  def fetch_index_config(config, index)
+    config.fetch(index) { config.values.first }
   end
 
 end
